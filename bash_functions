@@ -43,23 +43,50 @@ function ff_all {
   jobs_done "Fast-forward all")
 }
 
-# Search your history for the most recent uses of a command
-function hgt {
-  if [ -n $1 ]
+function brnch {
+  (cd $REPOSDIR
+  repos_list=""
+  for folder in $(find_git_repos); do
+    repos_list="$repos_list$(branch_status ${folder})\n"
+  done
+  echo -e ${repos_list} | column -t)
+}
+
+function branch_status {
+  folder=$1
+  cd ${folder}
+  BRANCHNAME=`git branch --show-current`
+  echo "${folder}\t\t${BRANCHNAME}\t\t$(git_rev_count ${BRANCHNAME})"
+}
+
+# Return whether or not your branch is up-to-date.
+function git_rev_count {
+  if [ -z $1 ]
   then
-    if [ -z $2 ]
-    then
-      TAILCOUNT=10
-    else
-      TAILCOUNT=$2
-    fi
-    history | grep $1 | tail -"${TAILCOUNT}"
+    BRANCHNAME=`git branch --show-current`
+  else
+    BRANCHNAME=$1
+  fi
+  if (( $(git rev-list HEAD...origin/${BRANCHNAME} --count) != 0))
+ then
+    echo "`tput setaf 1`out-of-sync with remote`tput sgr0`"
+  else
+    echo "`tput setaf 4`up-to-date`tput sgr0`"
   fi
 }
 
-# Run a job silently in the background.
-function hush {
-  (eval "$@" &> /dev/null
-  wait
-  jobs_done "$1 complete") &
+# Add all files and commit with message
+function gac {
+  if [[ -z $@ ]]
+  then
+    echo "Usage: gac \"Commit Message\""
+    return
+  else
+    BRANCHNAME=`git rev-parse --abbrev-ref HEAD`
+    IFS=- read project jiraNo the_rest <<< "$BRANCHNAME"
+    branchNo="${project}-${jiraNo}"
+    commitMessage="${branchNo} $@ -mw"
+    git add .
+    git commit -m "${commitMessage}"
+  fi
 }
